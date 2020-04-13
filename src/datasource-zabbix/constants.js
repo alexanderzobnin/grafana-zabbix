@@ -8,6 +8,7 @@ export const MODE_ITSERVICE = 1;
 export const MODE_TEXT = 2;
 export const MODE_ITEMID = 3;
 export const MODE_TRIGGERS = 4;
+export const MODE_MAP = 5;
 
 // Triggers severity
 export const SEV_NOT_CLASSIFIED = 0;

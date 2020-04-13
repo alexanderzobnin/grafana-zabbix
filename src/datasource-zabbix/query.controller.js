@@ -21,13 +21,15 @@ export class ZabbixQueryController extends QueryCtrl {
       {value: 'text',      text: 'Text',        mode: c.MODE_TEXT},
       {value: 'itservice', text: 'IT Services', mode: c.MODE_ITSERVICE},
       {value: 'itemid',    text: 'Item ID',     mode: c.MODE_ITEMID},
-      {value: 'triggers',  text: 'Triggers',    mode: c.MODE_TRIGGERS}
+      {value: 'triggers',  text: 'Triggers',    mode: c.MODE_TRIGGERS},
+      {value: 'map',       text: 'Map',         mode: c.MODE_MAP}
     ];
 
     this.$scope.editorMode = {
       METRICS: c.MODE_METRICS,
       TEXT: c.MODE_TEXT,
       ITSERVICE: c.MODE_ITSERVICE,
+      MAP: c.MODE_MAP,
       ITEMID: c.MODE_ITEMID,
       TRIGGERS: c.MODE_TRIGGERS
     };
@@ -38,6 +40,12 @@ export class ZabbixQueryController extends QueryCtrl {
       {name: "OK time", property: "okTime"},
       {name: "Problem time", property: "problemTime"},
       {name: "Down time", property: "downtimeTime"}
+    ];
+
+    this.mapQueryTypeList = [
+      {name: "Properties", queryType: "properties"},
+      {name: "Elements", queryType: "elements"},
+      {name: "Links", queryType: "links"}
     ];
 
     this.ackFilters = [
@@ -56,6 +64,7 @@ export class ZabbixQueryController extends QueryCtrl {
     this.getApplicationNames = _.bind(this.getMetricNames, this, 'appList');
     this.getItemNames = _.bind(this.getMetricNames, this, 'itemList');
     this.getITServices = _.bind(this.getMetricNames, this, 'itServiceList');
+    this.getMaps = _.bind(this.getMetricNames, this, 'mapList');
     this.getVariables = _.bind(this.getTemplateVariables, this);
 
     // Update metric suggestion when template variable was changed
@@ -115,6 +124,11 @@ export class ZabbixQueryController extends QueryCtrl {
       else if (target.mode === c.MODE_ITSERVICE) {
         _.defaults(target, {slaProperty: {name: "SLA", property: "sla"}});
         this.suggestITServices();
+      }
+      else if (target.mode === c.MODE_MAP) {
+        console.debug('maps mode. Will call suggestmaps()');
+        _.defaults(target, {mapQueryType: {name: "Properties", queryType: "properties"}});
+        this.suggestMaps();
       }
     };
 
@@ -204,6 +218,16 @@ export class ZabbixQueryController extends QueryCtrl {
     .then(itservices => {
       this.metric.itServiceList = itservices;
       return itservices;
+    });
+  }
+
+  suggestMaps() {
+    console.debug('calling this.zabbix.getMap()');
+    return this.zabbix.getMap()
+    .then(maps => {
+      console.debug('Suggested maps: ', maps);
+      this.metric.mapList = maps;
+      return maps;
     });
   }
 

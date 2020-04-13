@@ -10,17 +10,17 @@ import { InfluxDBConnector } from './connectors/influxdb/influxdbConnector';
 
 const REQUESTS_TO_PROXYFY = [
   'getHistory', 'getTrend', 'getGroups', 'getHosts', 'getApps', 'getItems', 'getMacros', 'getItemsByIDs',
-  'getEvents', 'getAlerts', 'getHostAlerts', 'getAcknowledges', 'getITService', 'getSLA', 'getVersion', 'getProxies',
+  'getEvents', 'getAlerts', 'getHostAlerts', 'getAcknowledges', 'getITService', 'getSLA', 'getMap', 'getVersion', 'getProxies',
   'getEventAlerts', 'getExtendedEventData'
 ];
 
 const REQUESTS_TO_CACHE = [
-  'getGroups', 'getHosts', 'getApps', 'getItems', 'getMacros', 'getItemsByIDs', 'getITService', 'getProxies'
+  'getGroups', 'getHosts', 'getApps', 'getItems', 'getMacros', 'getItemsByIDs', 'getITService', 'getMap', 'getProxies'
 ];
 
 const REQUESTS_TO_BIND = [
   'getHistory', 'getTrend', 'getMacros', 'getItemsByIDs', 'getEvents', 'getAlerts', 'getHostAlerts',
-  'getAcknowledges', 'getITService', 'getVersion', 'login', 'acknowledgeEvent', 'getProxies', 'getEventAlerts',
+  'getAcknowledges', 'getITService', 'getMap', 'getVersion', 'login', 'acknowledgeEvent', 'getProxies', 'getEventAlerts',
   'getExtendedEventData'
 ];
 
@@ -256,6 +256,11 @@ export class Zabbix {
   getITServices(itServiceFilter) {
     return this.zabbixAPI.getITService()
     .then(itServices => findByFilter(itServices, itServiceFilter));
+  }
+
+  getMaps(mapFilter) {
+    return this.zabbixAPI.getMap()
+    .then(maps => findByFilter(maps, mapFilter));
   }
 
   /**

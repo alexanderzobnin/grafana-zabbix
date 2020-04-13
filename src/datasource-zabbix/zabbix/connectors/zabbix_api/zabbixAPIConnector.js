@@ -317,6 +317,23 @@ export class ZabbixAPIConnector {
     return this.request('service.get', params);
   }
 
+  getMap(mapids) {
+    var params = {
+      //   output: 'extend',
+      //   selectSelements: 'extend',
+      //   selectLinks: 'extend',
+      output: ['sysmapid', 'name', 'width', 'height', 'backgroundid'],
+      selectSelements: ['selementid', 'sysmapid', 'elementtype', 'label', 'x', 'y'],
+      selectLinks: 'extend',
+      sysmapids: mapids
+    };
+    // if (queryType == 'properties') {params.output = 'extend'};
+    // if (queryType == 'elements') {params.selectSelements = 'extend'};
+    // if (queryType == 'links') {params.selectLinks = 'extend'};
+    console.debug('API Query params: ' + JSON.stringify(params));
+    return this.request('map.get', params);
+  }
+
   getSLA(serviceids, timeRange, options) {
     const intervals = buildSLAIntervals(timeRange, options.intervalMs);
     const params = {

@@ -54,6 +54,38 @@
     </div>
   </div>
 
+    <!-- Map -->
+    <div class="gf-form-inline" ng-show="ctrl.target.mode == editorMode.MAP">
+      <div class="gf-form max-width-20">
+        <label class="gf-form-label query-keyword width-7">Map</label>
+        <input type="text"
+          ng-model="ctrl.target.mapFilter"
+          bs-typeahead="ctrl.getMaps"
+          ng-blur="ctrl.onTargetBlur()"
+          data-min-length=0
+          data-items=100
+          class="gf-form-input"
+          ng-class="{
+            'zbx-variable': ctrl.isVariable(ctrl.target.mapFilter),
+            'zbx-regex': ctrl.isRegex(ctrl.target.mapFilter)
+          }">
+        </input>
+      </div>
+      <div class="gf-form">
+          <label class="gf-form-label query-keyword">Query Type</label>
+          <div class="gf-form-select-wrapper">
+            <select class="gf-form-input"
+              ng-change="ctrl.onTargetBlur()"
+              ng-model="ctrl.target.mapQueryType"
+              ng-options="mapQueryType.name for mapQueryType in ctrl.mapQueryTypeList track by mapQueryType.name">
+            </select>
+          </div>
+        </div>
+        <div class="gf-form gf-form--grow">
+        <div class="gf-form-label gf-form-label--grow"></div>
+      </div>
+    </div>
+  
   <div class="gf-form-inline" ng-show="ctrl.target.mode == editorMode.METRICS || ctrl.target.mode == editorMode.TEXT || ctrl.target.mode == editorMode.TRIGGERS">
     <!-- Select Group -->
     <div class="gf-form max-width-20">

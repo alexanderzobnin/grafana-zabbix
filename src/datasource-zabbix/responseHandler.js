@@ -181,6 +181,38 @@ function handleTriggersResponse(triggers, groups, timeRange) {
   }
 }
 
+function handleMapsResponse(zbxmap, queryType) {
+  let table = new TableModel();
+  if (queryType === "properties") {
+    console.debug('Filling map properties');
+    table.addColumn({text: 'map.id'});
+    table.addColumn({text: 'map.name'});
+    table.addColumn({text: 'map.w'});
+    table.addColumn({text: 'map.h'});
+    table.addColumn({text: 'map.bg'});
+    table.rows.push([zbxmap.sysmapid, zbxmap.name, zbxmap.width, zbxmap.height, zbxmap.backgroundid]);
+  } else if (queryType === "elements") {
+    console.debug('Filling elements');
+    table.addColumn({text: 'element.id'});
+    table.addColumn({text: 'element.mapid'});
+    table.addColumn({text: 'element.type'});
+    table.addColumn({text: 'element.label'});
+    table.addColumn({text: 'element.x'});
+    table.addColumn({text: 'element.y'});
+    _.each(zbxmap.selements, function (selement) {
+      let row = [
+        selement.selementid, selement.sysmapid, selement.elementtype, selement.label, selement.x, selement.y
+      ];
+      table.rows.push(row);
+    });
+  } else if (queryType === "links") {
+    console.debug('Filling links');
+
+  }
+  console.debug('Table for ' + queryType + ': ', table);
+  return table;
+}
+
 function getTriggerStats(triggers) {
   let groups = _.uniq(_.flattenDeep(_.map(triggers, (trigger) => _.map(trigger.groups, 'name'))));
   // let severity = _.map(c.TRIGGER_SEVERITY, 'text');
@@ -240,6 +272,7 @@ export default {
   handleHistoryAsTable,
   handleSLAResponse,
   handleTriggersResponse,
+  handleMapsResponse,
   sortTimeseries
 };
 

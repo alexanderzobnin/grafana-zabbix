@@ -154,6 +154,9 @@ export class ZabbixDatasource {
       } else if (target.mode === c.MODE_ITSERVICE) {
         // IT services mode
         return this.queryITServiceData(target, timeRange, options);
+      } else if (target.mode === c.MODE_MAP) {
+        // Maps mode
+        return this.queryMapData(target, timeRange, options);
       } else if (target.mode === c.MODE_TRIGGERS) {
         // Triggers mode
         return this.queryTriggersData(target, timeRange);
@@ -329,6 +332,28 @@ export class ZabbixDatasource {
     .then(itservices => {
       return this.zabbix.getSLA(itservices, timeRange, target, options);})
     .then(itservicesdp => this.applyDataProcessingFunctions(itservicesdp, target));
+  }
+
+  /**
+  * Query target data for Maps mode
+  */
+  queryMapData(target, timeRange, options) {
+    let mapFilter;
+    options.isOldVersion = target.map && !target.mapFilter;
+
+    if (options.isOldVersion) {
+      // Backward compatibility
+      mapFilter = '/.*/';
+    } else {
+      mapFilter = this.replaceTemplateVars(target.mapFilter, options.scopedVars);
+    }
+
+    console.debug('mapQueryType: ' + target.mapQueryType.queryType);
+    return this.zabbix.getMaps(mapFilter, target.mapQueryType.queryType)
+      .then((results) => {
+        console.debug('Map received: ', results[0]);
+        return responseHandler.handleMapsResponse(results[0], target.mapQueryType.queryType);
+      });
   }
 
   queryTriggersData(target, timeRange) {
