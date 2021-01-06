@@ -43,7 +43,7 @@
     "@types/react": "16.8.16",
     "@types/react-dom": "16.8.4",
     "@types/react-transition-group": "4.2.4",
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "babel-jest": "24.8.0",
     "babel-loader": "8.0.6",
     "babel-plugin-angularjs-annotate": "0.10.0",
