@@ -52,7 +52,7 @@
     "benchmark": "^2.1.4",
     "classnames": "2.2.6",
     "clean-webpack-plugin": "^0.1.19",
-    "codecov": "^3.1.0",
+    "codecov": "^3.7.1",
     "copy-webpack-plugin": "^5.1.1",
     "css-loader": "3.4.2",
     "extract-text-webpack-plugin": "^4.0.0-beta.0",
