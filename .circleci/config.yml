@@ -1,3 +1,5 @@
+version: 2.1
+
 aliases:
   # Workflow filters
   - &filter-not-release-or-master
@@ -21,45 +23,67 @@ aliases:
     branches:
       only: docs
 
-version: 2
+executors:
+  e2e_exec:
+    docker:
+      - image: srclosson/grafana-plugin-ci-e2e:latest
+
 jobs:
   build:
     working_directory: ~/alexanderzobnin/grafana-zabbix
     docker:
-      - image: circleci/node:12
+      - image: circleci/golang:1.14-node
+    environment:
+      YARN_NO_PROGRESS: "true"
     steps:
       - checkout
       - restore_cache:
           keys:
-            - dependency-cache-{{ checksum "yarn.lock" }}
+            - dependency-cache-npm-{{ checksum "yarn.lock" }}
+      - restore_cache:
+          keys:
+            - dependency-cache-go-{{ checksum "go.sum" }}
       - run:
-          name: yarn install
-          command: 'yarn install --pure-lockfile --no-progress'
+          name: Install Dependencies
+          command: 'make install'
           no_output_timeout: 15m
       - save_cache:
-          key: dependency-cache-{{ checksum "yarn.lock" }}
+          key: dependency-cache-npm-{{ checksum "yarn.lock" }}
           paths:
           - ./node_modules
-      - run: npm run build
+      - save_cache:
+          key: dependency-cache-go-{{ checksum "go.sum" }}
+          paths:
+          - ./vendor
+          - /go/pkg/mod
+      - run: make build
 
   lint:
     working_directory: ~/alexanderzobnin/grafana-zabbix
     docker:
-      - image: circleci/node:12
+      - image: circleci/golang:1.14-node
     steps:
       - checkout
       - restore_cache:
           keys:
-            - dependency-cache-{{ checksum "yarn.lock" }}
+            - dependency-cache-npm-{{ checksum "yarn.lock" }}
+      - restore_cache:
+          keys:
+            - dependency-cache-go-{{ checksum "go.sum" }}
       - run:
-          name: yarn install
-          command: 'yarn install --pure-lockfile --no-progress'
+          name: Install Dependencies
+          command: 'make install'
           no_output_timeout: 15m
       - save_cache:
-          key: dependency-cache-{{ checksum "yarn.lock" }}
+          key: dependency-cache-npm-{{ checksum "yarn.lock" }}
           paths:
           - ./node_modules
-      - run: npm run lint
+      - save_cache:
+          key: dependency-cache-go-{{ checksum "go.sum" }}
+          paths:
+          - ./vendor
+          - /go/pkg/mod
+      - run: make lint
 
   test:
     working_directory: ~/alexanderzobnin/grafana-zabbix
@@ -67,7 +91,7 @@ jobs:
       CIRCLE_ARTIFACTS: /tmp/circleci-artifacts
       CIRCLE_TEST_REPORTS: /tmp/circleci-test-results
     docker:
-      - image: circleci/node:12
+      - image: circleci/golang:1.14-node
     steps:
       - checkout
       # Prepare for artifact and test results collection equivalent to how it was done on 1.0.
@@ -76,16 +100,25 @@ jobs:
       - run: mkdir -p $CIRCLE_ARTIFACTS $CIRCLE_TEST_REPORTS
       - restore_cache:
           keys:
-            - dependency-cache-{{ checksum "yarn.lock" }}
+            - dependency-cache-npm-{{ checksum "yarn.lock" }}
+      - restore_cache:
+          keys:
+            - dependency-cache-go-{{ checksum "go.sum" }}
       - run:
-          name: yarn install
-          command: 'yarn install --pure-lockfile --no-progress'
+          name: Install Dependencies
+          command: 'make install'
           no_output_timeout: 15m
       - save_cache:
-          key: dependency-cache-{{ checksum "yarn.lock" }}
+          key: dependency-cache-npm-{{ checksum "yarn.lock" }}
           paths:
           - ./node_modules
-      - run: npm run ci-test
+      - save_cache:
+          key: dependency-cache-go-{{ checksum "go.sum" }}
+          paths:
+          - ./vendor
+          - /go/pkg/mod
+      - run: make test-ci
+      - run: bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
       - store_test_results:
           path: /tmp/circleci-test-results
       - store_artifacts:
@@ -93,10 +126,85 @@ jobs:
       - store_artifacts:
           path: /tmp/circleci-test-results
 
-  make-release:
+  get-plugin:
     working_directory: ~/alexanderzobnin/grafana-zabbix
     docker:
-      - image: circleci/node:12
+      - image: circleci/golang:1.14-node
+    environment:
+      YARN_NO_PROGRESS: "true"
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dependency-cache-npm-{{ checksum "yarn.lock" }}
+      - restore_cache:
+          keys:
+            - dependency-cache-go-{{ checksum "go.sum" }}
+      - persist_to_workspace:
+          root: ~/alexanderzobnin/
+          paths:
+            - grafana-zabbix
+
+  package-plugin:
+    executor: e2e_exec
+    working_directory: ~/alexanderzobnin/grafana-zabbix
+    steps:
+      - attach_workspace:
+          at: ~/alexanderzobnin
+      - run:
+          name: Install Dependencies
+          command: 'make install'
+          no_output_timeout: 15m
+      - save_cache:
+          key: dependency-cache-npm-{{ checksum "yarn.lock" }}
+          paths:
+          - ./node_modules
+      - save_cache:
+          key: dependency-cache-go-{{ checksum "go.sum" }}
+          paths:
+          - ./vendor
+          - /go/pkg/mod
+      - run:
+          name: Build plugin for all platforms
+          command: 'make dist'
+          no_output_timeout: 15m
+      - run:
+          name: Prepare plugin for packaging
+          command: |
+            mkdir -p ci/jobs/build_plugin
+            mv dist/ ci/jobs/build_plugin
+            cp CHANGELOG.md ci/jobs/build_plugin/dist
+      - run:
+          name: Package and sign plugin
+          command: yarn grafana-toolkit plugin:ci-package
+          no_output_timeout: 15m
+      - persist_to_workspace:
+          root: ~/alexanderzobnin/
+          paths:
+            - grafana-zabbix
+      - store_artifacts:
+          path: ci/packages
+
+  make-github-release:
+    working_directory: ~/alexanderzobnin/grafana-zabbix
+    docker:
+      - image: circleci/golang:1.14-node
+    environment:
+    steps:
+      - attach_workspace:
+          at: ~/alexanderzobnin
+      - run:
+          name: Prepare assets
+          command: mv ci/packages/* ./
+      - run:
+          name: Publish release
+          command: 'node ./.circleci/github/publishRelease.js'
+          no_output_timeout: 15m
+
+  make-release-commit:
+    working_directory: ~/alexanderzobnin/grafana-zabbix
+    docker:
+      - image: circleci/golang:1.13-node
     environment:
       CI_GIT_USER: CircleCI
       CI_GIT_EMAIL: ci@grafana.com
@@ -107,15 +215,23 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - dependency-cache-{{ checksum "yarn.lock" }}
+            - dependency-cache-npm-{{ checksum "yarn.lock" }}
+      - restore_cache:
+          keys:
+            - dependency-cache-go-{{ checksum "go.sum" }}
       - run:
-          name: yarn install
-          command: 'yarn install --pure-lockfile --no-progress'
+          name: Install Dependencies
+          command: 'make install'
           no_output_timeout: 15m
       - save_cache:
-          key: dependency-cache-{{ checksum "yarn.lock" }}
+          key: dependency-cache-npm-{{ checksum "yarn.lock" }}
           paths:
           - ./node_modules
+      - save_cache:
+          key: dependency-cache-go-{{ checksum "go.sum" }}
+          paths:
+          - ./vendor
+          - /go/pkg/mod
       - run: ./.circleci/make-release.sh
 
   build-docs:
@@ -123,15 +239,9 @@ jobs:
     docker:
       - image: circleci/python:2.7
     steps:
-      - run:
-          name: install git lfs
-          command: 'curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash'
-      - run: sudo apt-get install git-lfs
-      - run: git lfs install
       - run: sudo pip install --upgrade pip
       - run: sudo pip install mkdocs
       - checkout
-      - run: git lfs fetch --all
       - run: cd docs && mkdocs build --clean
       - persist_to_workspace:
           root: .
@@ -141,7 +251,7 @@ jobs:
   deploy-docs:
     working_directory: ~/grafana-zabbix
     docker:
-      - image: circleci/node:12
+      - image: circleci/golang:1.14-node
     environment:
       GH_PAGES_BRANCH: gh-pages
       CI_GIT_USER: CircleCI
@@ -162,7 +272,7 @@ jobs:
     steps:
     - checkout
     - run: sudo pip install codespell
-    - run: codespell -S './.git*,./src/img*,./yarn.lock' -L que --ignore-words=./.codespell_ignore
+    - run: codespell -S './.git*,./src/img*,./go.sum,./yarn.lock' -L que --ignore-words=./.codespell_ignore
 
 workflows:
   version: 2
@@ -198,12 +308,20 @@ workflows:
           filters: *filter-only-release
       - test:
           filters: *filter-only-release
-      - make-release:
+      - get-plugin:
           requires:
             - build
             - codespell
             - lint
             - test
+          filters: *filter-only-release
+      - package-plugin:
+          requires:
+            - get-plugin
+          filters: *filter-only-release
+      - make-github-release:
+          requires:
+            - package-plugin
           filters: *filter-only-release
 
   build-docs:

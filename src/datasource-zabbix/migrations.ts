@@ -1,4 +1,5 @@
 import _ from 'lodash';
+import { ZabbixMetricsQuery } from './types';
 import * as c from './constants';
 
 /**
@@ -20,7 +21,7 @@ export function isGrafana2target(target) {
   }
 }
 
-export function migrateFrom2To3version(target) {
+export function migrateFrom2To3version(target: ZabbixMetricsQuery) {
   target.group.filter = target.group.name === "*" ? "/.*/" : target.group.name;
   target.host.filter = target.host.name === "*" ? convertToRegex(target.hostFilter) : target.host.name;
   target.application.filter = target.application.name === "*" ? "" : target.application.name;
@@ -56,6 +57,12 @@ function migrateSLA(target) {
   }
 }
 
+function migrateProblemSort(target) {
+  if (target.options?.sortProblems === 'priority') {
+    target.options.sortProblems = 'severity';
+  }
+}
+
 export function migrate(target) {
   target.resultFormat = target.resultFormat || 'time_series';
   target = fixTargetGroup(target);
@@ -65,6 +72,7 @@ export function migrate(target) {
   migratePercentileAgg(target);
   migrateQueryType(target);
   migrateSLA(target);
+  migrateProblemSort(target);
   return target;
 }
 

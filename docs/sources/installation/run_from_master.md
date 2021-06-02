@@ -2,32 +2,42 @@ page_title: Run Grafana-Zabbix from master
 page_description: Building instructions for Grafana-Zabbix.
 
 # Run from master
+
 If you want to build a package yourself, or contribute - here is a guide for how to do that.
 
-### Dependencies
+## Prerequisites
 
-- NodeJS LTS
+- [NodeJS](https://nodejs.org/) LTS
+- [Go](https://golang.org/) version 1.14 or above
 
-### Building plugin
+## Building
+
+### Install dependencies
 
 ```bash
-npm install -g yarn
-yarn install --pure-lockfile
-yarn build
+make install
 ```
 
-### To build plugin and rebuild on file change
+### Build plugin (for all platforms)
 
 ```bash
-yarn watch
+make dist
+```
+
+### To run frontend and rebuild on file change
+
+```bash
+make run-frontend
+```
+
+### To run backend and rebuild on file change
+
+```bash
+make run-backend
 ```
 
 ### Run tests
-```bash
-yarn test
-```
 
-### Run tests on file change
 ```bash
-yarn jest
+make test
 ```

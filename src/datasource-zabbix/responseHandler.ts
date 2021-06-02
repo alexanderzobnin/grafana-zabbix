@@ -1,6 +1,9 @@
 import _ from 'lodash';
 import TableModel from 'grafana/app/core/table_model';
 import * as c from './constants';
+import * as utils from './utils';
+import { ArrayVector, DataFrame, Field, FieldType, MutableDataFrame, MutableField, TIME_SERIES_TIME_FIELD_NAME, TIME_SERIES_VALUE_FIELD_NAME } from '@grafana/data';
+import { ZabbixMetricsQuery } from './types';
 
 /**
  * Convert Zabbix API history.get response to Grafana format
@@ -35,6 +38,7 @@ function convertHistory(history, items, addHostName, convertPointCallback) {
       '__zbx_item': { value: item.name },
       '__zbx_item_name': { value: item.name },
       '__zbx_item_key': { value: item.key_ },
+      '__zbx_item_interval': { value: item.delay },
     };
 
     if (_.keys(hosts).length > 0) {
@@ -52,8 +56,187 @@ function convertHistory(history, items, addHostName, convertPointCallback) {
       target: alias,
       datapoints: _.map(hist, convertPointCallback),
       scopedVars,
+      item
     };
   });
+}
+
+export function seriesToDataFrame(timeseries, target: ZabbixMetricsQuery, valueMappings?: any[], fieldType?: FieldType): MutableDataFrame {
+  const { datapoints, scopedVars, target: seriesName, item } = timeseries;
+
+  const timeFiled: Field = {
+    name: TIME_SERIES_TIME_FIELD_NAME,
+    type: FieldType.time,
+    config: {
+      custom: {}
+    },
+    values: new ArrayVector<number>(datapoints.map(p => p[c.DATAPOINT_TS])),
+  };
+
+  let values: ArrayVector<number> | ArrayVector<string>;
+  if (fieldType === FieldType.string) {
+    values = new ArrayVector<string>(datapoints.map(p => p[c.DATAPOINT_VALUE]));
+  } else {
+    values = new ArrayVector<number>(datapoints.map(p => p[c.DATAPOINT_VALUE]));
+  }
+
+  const valueFiled: Field = {
+    name: TIME_SERIES_VALUE_FIELD_NAME,
+    type: fieldType ?? FieldType.number,
+    labels: {},
+    config: {
+      displayNameFromDS: seriesName,
+      custom: {}
+    },
+    values,
+  };
+
+  if (scopedVars) {
+    timeFiled.config.custom = {
+      itemInterval: scopedVars['__zbx_item_interval']?.value,
+    };
+
+    valueFiled.labels = {
+      host: scopedVars['__zbx_host_name']?.value,
+      item: scopedVars['__zbx_item']?.value,
+      item_key: scopedVars['__zbx_item_key']?.value,
+    };
+
+    valueFiled.config.custom = {
+      itemInterval: scopedVars['__zbx_item_interval']?.value,
+    };
+  }
+
+  if (item) {
+    // Try to use unit configured in Zabbix
+    const unit = utils.convertZabbixUnit(item.units);
+    if (unit) {
+      console.log(`Datasource: unit detected: ${unit} (${item.units})`);
+      valueFiled.config.unit = unit;
+
+      if (unit === 'percent') {
+        valueFiled.config.min = 0;
+        valueFiled.config.max = 100;
+      }
+    }
+
+    // Try to use value mapping from Zabbix
+    const mappings = utils.getValueMapping(item, valueMappings);
+    if (mappings && target.options?.useZabbixValueMapping) {
+      console.log(`Datasource: using Zabbix value mapping`);
+      valueFiled.config.mappings = mappings;
+    }
+  }
+
+  const fields: Field[] = [ timeFiled, valueFiled ];
+
+  const frame: DataFrame = {
+    name: seriesName,
+    refId: target.refId,
+    fields,
+    length: datapoints.length,
+  };
+
+  const mutableFrame = new MutableDataFrame(frame);
+  return mutableFrame;
+}
+
+export function isConvertibleToWide(data: DataFrame[]): boolean {
+  if (!data || data.length < 2) {
+    return false;
+  }
+
+  const first = data[0].fields.find(f => f.type === FieldType.time);
+  if (!first) {
+    return false;
+  }
+
+  for (let i = 1; i < data.length; i++) {
+    const timeField = data[i].fields.find(f => f.type === FieldType.time);
+
+    for (let j = 0; j < Math.min(data.length, 2); j++) {
+      if (timeField.values.get(j) !== first.values.get(j)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+export function alignFrames(data: MutableDataFrame[]): MutableDataFrame[] {
+  if (!data || data.length === 0) {
+    return data;
+  }
+
+  // Get oldest time stamp for all frames
+  let minTimestamp = data[0].fields.find(f => f.name === TIME_SERIES_TIME_FIELD_NAME).values.get(0);
+  for (let i = 0; i < data.length; i++) {
+    const timeField = data[i].fields.find(f => f.name === TIME_SERIES_TIME_FIELD_NAME);
+    const firstTs = timeField.values.get(0);
+    if (firstTs < minTimestamp) {
+      minTimestamp = firstTs;
+    }
+  }
+
+  for (let i = 0; i < data.length; i++) {
+    const frame = data[i];
+    const timeField = frame.fields.find(f => f.name === TIME_SERIES_TIME_FIELD_NAME);
+    const valueField = frame.fields.find(f => f.name === TIME_SERIES_VALUE_FIELD_NAME);
+    const firstTs = timeField.values.get(0);
+
+    if (firstTs > minTimestamp) {
+      console.log('Data frames: adding missing points');
+      let timestamps = timeField.values.toArray();
+      let values = valueField.values.toArray();
+      const missingTimestamps = [];
+      const missingValues = [];
+      const frameInterval: number = timeField.config.custom?.itemInterval;
+      for (let j = minTimestamp; j < firstTs; j+=frameInterval) {
+        missingTimestamps.push(j);
+        missingValues.push(null);
+      }
+
+      timestamps = missingTimestamps.concat(timestamps);
+      values = missingValues.concat(values);
+      timeField.values = new ArrayVector(timestamps);
+      valueField.values = new ArrayVector(values);
+    }
+  }
+
+  return data;
+}
+
+export function convertToWide(data: MutableDataFrame[]): DataFrame[] {
+  const timeField = data[0].fields.find(f => f.type === FieldType.time);
+  if (!timeField) {
+    return [];
+  }
+
+  const fields: MutableField[] = [ timeField ];
+
+  for (let i = 0; i < data.length; i++) {
+    const valueField = data[i].fields.find(f => f.name === TIME_SERIES_VALUE_FIELD_NAME);
+    if (!valueField) {
+      continue;
+    }
+
+    valueField.name = data[i].name;
+
+    // Add null value to the end if series is shifted by 1 time frame
+    if (timeField.values.length - valueField.values.length === 1) {
+      valueField.values.add(null);
+    }
+    fields.push(valueField);
+  }
+
+  const frame: DataFrame = {
+    name: "wide",
+    fields,
+    length: timeField.values.length,
+  };
+
+  return [frame];
 }
 
 function sortTimeseries(timeseries) {
@@ -233,10 +416,10 @@ function convertTrendPoint(valueType, point) {
       value = point.value_avg;
       break;
     case "sum":
-      value = point.value_sum;
+      value = point.value_avg * point.num;
       break;
     case "count":
-      value = point.value_count;
+      value = point.num;
       break;
     default:
       value = point.value_avg;
@@ -256,5 +439,9 @@ export default {
   handleHistoryAsTable,
   handleSLAResponse,
   handleTriggersResponse,
-  sortTimeseries
+  sortTimeseries,
+  seriesToDataFrame,
+  isConvertibleToWide,
+  convertToWide,
+  alignFrames,
 };

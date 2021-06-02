@@ -29,7 +29,7 @@ RELEASE_BRANCH=release-$RELEASE_VER
 
 # Build plugin
 git checkout -b "$RELEASE_BRANCH"
-yarn install --pure-lockfile && yarn build
+make clean install dist
 
 # Commit release
 git add --force dist/

@@ -134,6 +134,7 @@ function convertGrafanaTSResponse(time_series, items, addHostName) {
       '__zbx_item': { value: item.name },
       '__zbx_item_name': { value: item.name },
       '__zbx_item_key': { value: item.key_ },
+      '__zbx_item_interval': { value: item.delay },
     };
 
     if (_.keys(hosts).length > 0) {
@@ -153,6 +154,7 @@ function convertGrafanaTSResponse(time_series, items, addHostName) {
       target: alias,
       datapoints,
       scopedVars,
+      item
     };
   });
 

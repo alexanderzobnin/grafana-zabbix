@@ -3,6 +3,13 @@
   "name": "Zabbix",
   "id": "alexanderzobnin-zabbix-datasource",
 
+  "metrics": true,
+  "annotations": true,
+
+  "backend": true,
+  "alerting": true,
+  "executable": "../zabbix-plugin",
+
   "includes": [
     {
       "type": "dashboard",
@@ -20,9 +27,6 @@
       "path": "../dashboards/zabbix_server_dashboard.json"
     }
   ],
-
-  "metrics": true,
-  "annotations": true,
 
   "queryOptions": {
     "maxDataPoints": true

@@ -137,19 +137,6 @@ export function filterTriggersPre(triggerList, replacedTarget) {
     triggerList = filterTriggers(triggerList, triggerFilter);
   }
 
-  // Filter by tags
-  if (replacedTarget.tags.filter) {
-    let tagsFilter = replacedTarget.tags.filter;
-    // replaceTemplateVars() builds regex-like string, so we should trim it.
-    tagsFilter = tagsFilter.replace('/^', '').replace('$/', '');
-    const tags = utils.parseTags(tagsFilter);
-    triggerList = _.filter(triggerList, trigger => {
-      return _.every(tags, tag => {
-        return _.find(trigger.tags, t => t.tag === tag.tag && (!tag.value || t.value === tag.value));
-      });
-    });
-  }
-
   // Filter by maintenance status
   if (!replacedTarget.options.hostsInMaintenance) {
     triggerList = _.filter(triggerList, (trigger) => !trigger.maintenance);
@@ -170,12 +157,25 @@ function filterTriggers(triggers, triggerFilter) {
   }
 }
 
+export function sortProblems(problems: ProblemDTO[], target) {
+  if (target.options?.sortProblems === 'severity') {
+    problems = _.orderBy(problems, ['severity', 'eventid'], ['desc', 'desc']);
+  } else if (target.options?.sortProblems === 'lastchange') {
+    problems = _.orderBy(problems, ['timestamp', 'eventid'], ['desc', 'desc']);
+  }
+  return problems;
+}
+
 export function toDataFrame(problems: any[]): DataFrame {
   const problemsField: Field<any> = {
     name: 'Problems',
     type: FieldType.other,
     values: new ArrayVector(problems),
-    config: {},
+    config: {
+      custom: {
+        type: 'problems',
+      },
+    },
   };
 
   const response: DataFrame = {
@@ -193,6 +193,7 @@ const problemsHandler = {
   setMaintenanceStatus,
   setAckButtonStatus,
   filterTriggersPre,
+  sortProblems,
   toDataFrame,
   joinTriggersWithProblems,
   joinTriggersWithEvents,

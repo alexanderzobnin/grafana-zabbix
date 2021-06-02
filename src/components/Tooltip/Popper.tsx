@@ -10,6 +10,9 @@ const getStyles = stylesFactory(() => ({
     transition: opacity 200ms linear;
     opacity: 0;
   `,
+  tooltipContent: css`
+    overflow-wrap: break-word;
+  `,
 }));
 
 const transitionStyles = {
@@ -58,7 +61,9 @@ const Popper: FC<Props> = ({ show, placement, popperClassName, refClassName, con
                     className={popperClass}
                   >
                     <div className="popper__background">
-                      {renderContent(content)}
+                      <div className={styles.tooltipContent}>
+                        {renderContent(content)}
+                      </div>
                       <div ref={arrowProps.ref} data-placement={placement} className="popper__arrow" />
                     </div>
                   </div>

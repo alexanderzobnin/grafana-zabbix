@@ -1,14 +1,17 @@
-import React, { PureComponent } from 'react';
+import React, { FC, PureComponent } from 'react';
 import moment from 'moment';
 import * as utils from '../../../datasource-zabbix/utils';
 import { ProblemDTO, ZBXHost, ZBXGroup, ZBXEvent, ZBXTag, ZBXAlert } from '../../../datasource-zabbix/types';
+import { ZBXScript, APIExecuteScriptResponse } from '../../../datasource-zabbix/zabbix/connectors/zabbix_api/types';
 import { ZBXItem, GFTimeRange, RTRow } from '../../types';
 import { AckModal, AckProblemData } from '../AckModal';
 import EventTag from '../EventTag';
 import ProblemStatusBar from './ProblemStatusBar';
 import AcknowledgesList from './AcknowledgesList';
 import ProblemTimeline from './ProblemTimeline';
-import { FAIcon, ExploreButton, AckButton, Tooltip, ModalController } from '../../../components';
+import { FAIcon, ExploreButton, AckButton, Tooltip, ModalController, ExecScriptButton } from '../../../components';
+import { ExecScriptModal, ExecScriptData } from '../ExecScriptModal';
+import { Icon } from '@grafana/ui';
 
 interface ProblemDetailsProps extends RTRow<ProblemDTO> {
   rootWidth: number;
@@ -17,6 +20,8 @@ interface ProblemDetailsProps extends RTRow<ProblemDTO> {
   panelId?: number;
   getProblemEvents: (problem: ProblemDTO) => Promise<ZBXEvent[]>;
   getProblemAlerts: (problem: ProblemDTO) => Promise<ZBXAlert[]>;
+  getScripts: (problem: ProblemDTO) => Promise<ZBXScript[]>;
+  onExecuteScript(problem: ProblemDTO, scriptid: string): Promise<APIExecuteScriptResponse>;
   onProblemAck?: (problem: ProblemDTO, data: AckProblemData) => Promise<any> | any;
   onTagClick?: (tag: ZBXTag, datasource: string, ctrlKey?: boolean, shiftKey?: boolean) => void;
 }
@@ -74,6 +79,16 @@ export class ProblemDetails extends PureComponent<ProblemDetailsProps, ProblemDe
     return this.props.onProblemAck(problem, data);
   }
 
+  getScripts = () => {
+    const problem = this.props.original as ProblemDTO;
+    return this.props.getScripts(problem);
+  }
+
+  onExecuteScript = (data: ExecScriptData) => {
+    const problem = this.props.original as ProblemDTO;
+    return this.props.onExecuteScript(problem, data.scriptid);
+  }
+
   render() {
     const problem = this.props.original as ProblemDTO;
     const alerts = this.state.alerts;
@@ -104,6 +119,20 @@ export class ProblemDetails extends PureComponent<ProblemDetailsProps, ProblemDe
               <div className="problem-actions">
                 <ModalController>
                   {({ showModal, hideModal }) => (
+                    <ExecScriptButton
+                      className="navbar-button navbar-button--settings"
+                      onClick={() => {
+                        showModal(ExecScriptModal, {
+                          getScripts: this.getScripts,
+                          onSubmit: this.onExecuteScript,
+                          onDismiss: hideModal,
+                        });
+                      }}
+                    />
+                  )}
+                </ModalController>
+                <ModalController>
+                  {({ showModal, hideModal }) => (
                     <AckButton
                       className="navbar-button navbar-button--settings"
                       onClick={() => {
@@ -123,7 +152,9 @@ export class ProblemDetails extends PureComponent<ProblemDetailsProps, ProblemDe
           {problem.comments &&
             <div className="problem-description-row">
               <div className="problem-description">
-                <span className="description-label">Description:&nbsp;</span>
+                <Tooltip placement="right" content={problem.comments}>
+                  <span className="description-label">Description:&nbsp;</span>
+                </Tooltip>
                 <span>{problem.comments}</span>
               </div>
             </div>
@@ -185,14 +216,16 @@ interface ProblemItemProps {
 function ProblemItem(props: ProblemItemProps) {
   const { item, showName } = props;
   const itemName = utils.expandItemName(item.name, item.key_);
+  const tooltipContent = () => <>{itemName}<br/>{item.lastvalue}</>;
+
   return (
-    <Tooltip placement="bottom" content={itemName}>
-      <div className="problem-item">
-        <FAIcon icon="thermometer-three-quarters" />
-        {showName && <span className="problem-item-name">{item.name}: </span>}
+    <div className="problem-item">
+      <FAIcon icon="thermometer-three-quarters" />
+      {showName && <span className="problem-item-name">{item.name}: </span>}
+      <Tooltip placement="top-start" content={tooltipContent}>
         <span className="problem-item-value">{item.lastvalue}</span>
-      </div>
-    </Tooltip>
+      </Tooltip>
+    </div>
   );
 }
 
@@ -200,15 +233,16 @@ interface ProblemItemsProps {
   items: ZBXItem[];
 }
 
-class ProblemItems extends PureComponent<ProblemItemsProps> {
-  render() {
-    const { items } = this.props;
-    return (items.length > 1 ?
-      items.map(item => <ProblemItem item={item} key={item.itemid} showName={true} />) :
-      <ProblemItem item={items[0]} />
-    );
-  }
-}
+const ProblemItems: FC<ProblemItemsProps> = ({ items }) => {
+  return (
+    <div className="problem-items-row">
+      {items.length > 1 ?
+        items.map(item => <ProblemItem item={item} key={item.itemid} showName={true} />) :
+        <ProblemItem item={items[0]} />
+      }
+    </div>
+  );
+};
 
 interface ProblemGroupsProps {
   groups: ZBXGroup[];

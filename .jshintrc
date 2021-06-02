@@ -26,7 +26,7 @@
   "unused": true,
   "maxdepth": 6,
   "maxlen": 140,
-  "esnext": true,
+  "esversion": 8,
 
   "globals": {
     "System": true,
@@ -43,6 +43,7 @@
     "module": true,
     "beforeEach": true,
     "inject": true,
-    "__dirname": true
+    "__dirname": true,
+    "process": true
   }
 }

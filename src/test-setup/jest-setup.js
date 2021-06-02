@@ -20,6 +20,14 @@ jest.mock('angular', () => {
   };
 }, {virtual: true});
 
+jest.mock('grafana/app/features/templating/template_srv', () => {
+  return {};
+}, {virtual: true});
+
+jest.mock('grafana/app/features/dashboard/dashboard_srv', () => {
+  return {};
+}, {virtual: true});
+
 jest.mock('@grafana/runtime', () => {
   return {
     getBackendSrv: () => ({
@@ -44,6 +52,7 @@ const mockMetricsPanelCtrl = MetricsPanelCtrl;
 jest.mock('grafana/app/plugins/sdk', () => {
   return {
     QueryCtrl: null,
+    PanelCtrl: mockPanelCtrl,
     loadPluginCss: () => {},
     PanelCtrl: mockPanelCtrl,
     MetricsPanelCtrl: mockMetricsPanelCtrl,
@@ -56,13 +65,6 @@ jest.mock('grafana/app/core/utils/datemath', () => {
     parse: datemath.parse,
     parseDateMath: datemath.parseDateMath,
     isValid: datemath.isValid
-  };
-}, {virtual: true});
-
-jest.mock('grafana/app/core/utils/kbn', () => {
-  return {
-    round_interval: n => n,
-    secondsToHms: n => n + 'ms'
   };
 }, {virtual: true});
 
@@ -91,6 +93,13 @@ jest.mock('grafana/app/core/config', () => {
 }, {virtual: true});
 
 jest.mock('jquery', () => 'module not found', {virtual: true});
+
+jest.mock('grafana/app/core/utils/kbn', () => {
+  return {
+    round_interval: n => n,
+    secondsToHms: n => n + 'ms'
+  };
+}, {virtual: true});
 
 // jest.mock('@grafana/ui', () => {
 //   return {};

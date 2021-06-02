@@ -1,8 +1,8 @@
 import _ from 'lodash';
 import moment from 'moment';
-import kbn from 'grafana/app/core/utils/kbn';
 import * as c from './constants';
 import { VariableQuery, VariableQueryTypes } from './types';
+import { MappingType, ValueMapping, getValueFormats, DataFrame, FieldType, rangeUtil } from '@grafana/data';
 
 /*
  * This regex matches 3 types of variable reference with an optional format specifier
@@ -213,7 +213,7 @@ export function isTemplateVariable(str, templateVariables) {
 export function getRangeScopedVars(range) {
   const msRange = range.to.diff(range.from);
   const sRange = Math.round(msRange / 1000);
-  const regularRange = kbn.secondsToHms(msRange / 1000);
+  const regularRange = rangeUtil.secondsToHms(msRange / 1000);
   return {
     __range_ms: { text: msRange, value: msRange },
     __range_s: { text: sRange, value: sRange },
@@ -233,6 +233,26 @@ export function buildRegex(str) {
 // From Grafana's templateSrv.js
 export function escapeRegex(value) {
   return value.replace(/[\\^$*+?.()|[\]{}\/]/g, '\\$&');
+}
+
+/**
+ * Parses Zabbix item update interval. Returns 0 in case of custom intervals.
+ */
+export function parseItemInterval(interval: string): number {
+  const normalizedInterval = normalizeZabbixInterval(interval);
+  if (normalizedInterval) {
+    return parseInterval(normalizedInterval);
+  }
+  return 0;
+}
+
+export function normalizeZabbixInterval(interval: string): string {
+  const intervalPattern = /(^[\d]+)(y|M|w|d|h|m|s)?/g;
+  const parsedInterval = intervalPattern.exec(interval);
+  if (!parsedInterval || !interval || (parsedInterval.length > 2 && !parsedInterval[2])) {
+    return '';
+  }
+  return parsedInterval[1] + (parsedInterval.length > 2 ? parsedInterval[2] : 's');
 }
 
 export function parseInterval(interval: string): number {
@@ -302,6 +322,9 @@ export function callOnce(func, promiseKeeper) {
         .then(result => {
           promiseKeeper = null;
           return result;
+        }).catch(err => {
+          promiseKeeper = null;
+          throw err;
         })
       );
     }
@@ -383,4 +406,66 @@ export function parseTags(tagStr: string): any[] {
 
 export function mustArray(result: any): any[] {
   return result || [];
+}
+
+const getUnitsMap = () => ({
+  '%': 'percent',
+  'b': 'decbits', // bits(SI)
+  'bps': 'bps', // bits/sec(SI)
+  'B': 'bytes', // bytes(IEC)
+  'Bps': 'binBps', // bytes/sec(IEC)
+  // 'unixtime': 'dateTimeAsSystem',
+  'uptime': 'dtdhms',
+  'qps': 'qps', // requests/sec (rps)
+  'iops': 'iops', // I/O ops/sec (iops)
+  'Hz': 'hertz', // Hertz (1/s)
+  'V': 'volt', // Volt (V)
+  'C': 'celsius', // Celsius (°C)
+  'RPM': 'rotrpm', // Revolutions per minute (rpm)
+  'dBm': 'dBm', // Decibel-milliwatt (dBm)
+});
+
+const getKnownGrafanaUnits = () => {
+  const units = {};
+  const categories = getValueFormats();
+  for (const category of categories) {
+    for (const unitDesc of category.submenu) {
+      const unit = unitDesc.value;
+      units[unit] = unit;
+    }
+  }
+  return units;
+};
+
+const unitsMap = getUnitsMap();
+const knownGrafanaUnits = getKnownGrafanaUnits();
+
+export function convertZabbixUnit(zabbixUnit: string): string {
+  let unit = unitsMap[zabbixUnit];
+  if (!unit) {
+    unit = knownGrafanaUnits[zabbixUnit];
+  }
+  return unit;
+}
+
+export function getValueMapping(item, valueMappings: any[]): ValueMapping[] | null {
+  const { valuemapid } = item;
+  const mapping = valueMappings?.find(m => m.valuemapid === valuemapid);
+  if (!mapping) {
+    return null;
+  }
+
+  return (mapping.mappings as any[]).map((m, i) => {
+    const valueMapping: ValueMapping = {
+      id: i,
+      type: MappingType.ValueToText,
+      value: m.value,
+      text: m.newvalue,
+    };
+    return valueMapping;
+  });
+}
+
+export function isProblemsDataFrame(data: DataFrame): boolean {
+  return data.fields.length && data.fields[0].type === FieldType.other && data.fields[0].config.custom['type'] === 'problems';
 }

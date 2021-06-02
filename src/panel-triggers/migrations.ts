@@ -24,6 +24,10 @@ export function getDefaultTargetOptions() {
 }
 
 export function migratePanelSchema(panel) {
+  if (isDefaultPanel(panel)) {
+    return panel;
+  }
+
   if (isEmptyPanel(panel)) {
     delete panel.targets;
     return panel;
@@ -158,6 +162,14 @@ function isEmptyPanel(panel) {
 
 function isEmptyTargets(targets) {
   return !targets || (_.isArray(targets) && (targets.length === 0 || targets.length === 1 && _.isEmpty(targets[0])));
+}
+
+function isDefaultPanel(panel) {
+  return panel.targets && panel.targets.length === 1 && isDefaultTarget(panel.targets[0]);
+}
+
+function isDefaultTarget(target) {
+  return !target.group?.filter && !target.host?.filter && !target.application?.filter && !target.trigger?.filter && !target.queryType;
 }
 
 function isEmptyTarget(target) {

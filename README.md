@@ -56,6 +56,6 @@ First, [configure](https://alexanderzobnin.github.io/grafana-zabbix/configuratio
 - Need additional support? Contact me for details [alexanderzobnin@gmail.com](mailto:alexanderzobnin@gmail.com)
 
 ---
-:copyright: 2015-2020 Alexander Zobnin alexanderzobnin@gmail.com
+:copyright: 2015-2021 Alexander Zobnin alexanderzobnin@gmail.com
 
 Licensed under the Apache 2.0 License

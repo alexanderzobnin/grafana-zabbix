@@ -1,5 +1,167 @@
 # Change Log
 
+## [4.1.5] - 2021-05-18
+### Fixed
+- Fix compatibility with Zabbix 5.4, [#1188](https://github.com/alexanderzobnin/grafana-zabbix/issues/1188)
+
+## [4.1.4] - 2021-03-09
+### Fixed
+- `Field/Standard options/Display name` stopped working in 4.1 release, [#1130](https://github.com/alexanderzobnin/grafana-zabbix/issues/1130)
+- Functions: trendsValue(sum) is not working, [#935](https://github.com/alexanderzobnin/grafana-zabbix/issues/935)
+
+## [4.1.3] - 2021-03-05
+### Fixed
+- Explore: Error "Unexpected field length", [#1150](https://github.com/alexanderzobnin/grafana-zabbix/issues/1150)
+- Problems: item last value truncated text, [#1145](https://github.com/alexanderzobnin/grafana-zabbix/issues/1145)
+- Problems: minor UI bug, [#1149](https://github.com/alexanderzobnin/grafana-zabbix/issues/1149)
+- Option to disable zabbix value mapping translation in query, [#1128](https://github.com/alexanderzobnin/grafana-zabbix/issues/1128)
+
+## [4.1.2] - 2021-01-28
+### Fixed
+- Item ID query mode doesn't work, [#1148](https://github.com/alexanderzobnin/grafana-zabbix/issues/1148)
+- IT Services: a.round_interval is not a function, [#1142](https://github.com/alexanderzobnin/grafana-zabbix/issues/1142)
+- Problems: Text overlap between the tooltip and description boxes, [#1138](https://github.com/alexanderzobnin/grafana-zabbix/issues/1138)
+- Problems: expanded row overwritten on refresh, [#1143](https://github.com/alexanderzobnin/grafana-zabbix/issues/1143)
+
+## [4.1.1] - 2020-12-30
+### Fixed
+- Graphs with dependent items failed to render, [#1123](https://github.com/alexanderzobnin/grafana-zabbix/issues/1123)
+
+## [4.1.0] - 2020-12-28
+### Added
+- [Data Frames](https://grafana.com/docs/grafana/latest/developers/plugins/data-frames/) support, [#10820](https://github.com/alexanderzobnin/grafana-zabbix/issues/10820). This solves various issues below:
+- Use units configured in Zabbix if possible
+- Use value mappings from Zabbix
+- Align points in each series to prevent stacking graph issues
+- Fill missing points with null values, [#1109](https://github.com/alexanderzobnin/grafana-zabbix/issues/1109)
+- Problems: filter problems by time range, [#1094](https://github.com/alexanderzobnin/grafana-zabbix/issues/1094)
+- ARM build (ARM64 and ARM v6), [#1028](https://github.com/alexanderzobnin/grafana-zabbix/issues/1028)
+
+### Fixed
+- Grafana doesn't prevent from saving alerts with template variables, [#1100](https://github.com/alexanderzobnin/grafana-zabbix/issues/1100)
+- Query inspector is not working, [#1097](https://github.com/alexanderzobnin/grafana-zabbix/issues/1097)
+- Problems panel query editor issues, [#988](https://github.com/alexanderzobnin/grafana-zabbix/issues/988)
+- Problems: unable to change severity to Not Classified, [#1104](https://github.com/alexanderzobnin/grafana-zabbix/issues/1104)
+- Problems: ack message limited to 64 characters, [#1122](https://github.com/alexanderzobnin/grafana-zabbix/issues/1122)
+
+## [4.0.2] - 2020-11-13
+### Fixed
+- Query mode Text returns no data for last value, [#1062](https://github.com/alexanderzobnin/grafana-zabbix/issues/1062)
+- Able to configure API request timeout, [#1046](https://github.com/alexanderzobnin/grafana-zabbix/issues/1046)
+- Support basic auth for backend requests, [#1048](https://github.com/alexanderzobnin/grafana-zabbix/issues/1048)
+- Problems: fix empty problems list when null value used as a filter
+- Problems: fix long item values displaying
+
+## [4.0.1] - 2020-09-02
+### Fixed
+- Plugin is not signed, [#1038](https://github.com/alexanderzobnin/grafana-zabbix/issues/1038)
+- Datasource: "Parse error Invalid JSON. An error occurred on the server while parsing the JSON text", [#1004](https://github.com/alexanderzobnin/grafana-zabbix/issues/1004)
+- Datasource: Skip TLS Verify button does not work, [#1029](https://github.com/alexanderzobnin/grafana-zabbix/issues/1029)
+- Config: can't select Direct DB Connection in Grafana 7.1.5, [#1027](https://github.com/alexanderzobnin/grafana-zabbix/issues/1027)
+- Problems: trigger dependencies not resolved, [#1024](https://github.com/alexanderzobnin/grafana-zabbix/issues/1024)
+
+## [4.0.0] - 2020-08-25
+### 4.0 Feature highlights
+Grafana-Zabbix 4.0 comes with a bunch of changes under the hood. The most important thing introduced is a backend, which brings a number of benefits:
+
+- Alerting support (limited, data processing functions are not supported yet).
+- Fixed security issues related to exposing data source credentials to the Grafana frontend and storing password as a plain text in database.
+- Improved performance (plugin can cache queries and process data on the backend).
+- With improved security it makes easier to add actions (execute scripts, close problems, etc).
+
+### Installation
+
+**Prerequisites**: plugin requires Grafana 7.0 to run.
+
+Use the grafana-cli tool to install Zabbix from the commandline:
+
+1. `grafana-cli plugins install alexanderzobnin-zabbix-app`
+1. Unsigned plugins are not loading by default, so allow it in the Grafana config file:
+    ```sh
+    allow_loading_unsigned_plugins = alexanderzobnin-zabbix-datasource
+    ```
+1. restart Grafana server
+
+Refer to [`allow_loading_unsigned_plugins`](https://grafana.com/docs/grafana/latest/installation/configuration/#allow-loading-unsigned-plugins) option description for more information.
+
+### Security 
+- Zabbix credentials available for everyone who can see dashboard, [#380](https://github.com/alexanderzobnin/grafana-zabbix/issues/380)
+- Store password encrypted, [#800](https://github.com/alexanderzobnin/grafana-zabbix/issues/800)
+
+### Added
+- Alerting support (limited, data processing functions are not supported yet), [#801](https://github.com/alexanderzobnin/grafana-zabbix/issues/801)
+- Problems: execute scripts, [#978](https://github.com/alexanderzobnin/grafana-zabbix/issues/978)
+- Problems: tooltip with problem description
+- Problems: use severity filter from panel options
+
+### Fixed
+- Problems: problems history
+- Problems: sorting by severity, [#921](https://github.com/alexanderzobnin/grafana-zabbix/issues/921)
+- Datasource: reconnecting on request error
+- Problems: filtering by tags
+- Problems: sorting order
+- Problems: performance improvements (remove unnecessary queries)
+- Problems: empty problem list, [#955](https://github.com/alexanderzobnin/grafana-zabbix/issues/955)
+- Problems: panel migrations when panel options is not opened (options not saved after reload)
+- Problems: item value tooltip placement
+
+### Removed
+- Old alerting feature (show heart icon on the panel), replaced by Grafana alerting
+
+## [4.0.0-alpha4] - 2020-07-21
+### Fixed
+- Problems: filtering by tags
+- Problems: sorting order
+- Problems: performance improvements (remove unnecessary queries)
+
+## [4.0.0-alpha3] - 2020-07-17
+### Fixed
+- Problems: empty problem list, [#955](https://github.com/alexanderzobnin/grafana-zabbix/issues/955)
+
+## [4.0.0-alpha2] - 2020-06-18
+### Fixed
+- Problems: panel migrations when panel options is not opened (options not saved after reload)
+- Problems: item value tooltip placement
+
+### Added
+- Problems: use severity filter from panel options
+
+### Removed
+- Old alerting feature (show heart icon on the panel), replaced by Grafana alerting
+
+## [4.0.0-alpha1] - 2020-06-04
+### 4.0 Feature highlights
+Grafana-Zabbix 4.0 comes with a bunch of changes under the hood. The most important thing introduced is a backend, which brings a number of benefits:
+
+- Alerting support (limited, data processing functions are not supported yet).
+- Fixed security issues related to exposing data source credentials to the Grafana frontend and storing password as a plain text in database.
+- Improved performance (plugin can cache queries and process data on the backend).
+- With improved security it makes easier to add actions (execute scripts, close problems, etc).
+
+### Installation
+
+**Prerequisites**: plugin requires Grafana 7.0 to run.
+
+Version 4.0 is currently in alpha state and not published at grafana.com. In order to install it, follow these steps:
+1. Go to the [GitHub releases](https://github.com/alexanderzobnin/grafana-zabbix/releases) and find latest `4.0.0` release. 
+1. Download `.zip` package with plugin from release assets (asset name is `grafana-zabbix-4.0.0-<alphaX|betaX>.zip`).
+1. Unpack it and put into grafana plugins folder.
+1. Unsigned plugins are not loading by default, so allow it in config:
+    ```sh
+    allow_loading_unsigned_plugins = alexanderzobnin-zabbix-datasource
+    ```
+1. restart Grafana server
+
+Refer to [`allow_loading_unsigned_plugins`](https://grafana.com/docs/grafana/latest/installation/configuration/#allow-loading-unsigned-plugins) option description for more information.
+
+### Security 
+- Zabbix credentials available for everyone who can see dashboard, [#380](https://github.com/alexanderzobnin/grafana-zabbix/issues/380)
+- Store password encrypted, [#800](https://github.com/alexanderzobnin/grafana-zabbix/issues/800)
+
+### Added
+- Alerting support (limited, data processing functions are not supported yet), [#801](https://github.com/alexanderzobnin/grafana-zabbix/issues/801)
+- Problems: execute scripts, [#978](https://github.com/alexanderzobnin/grafana-zabbix/issues/978)
+
 ## [3.12.2] - 2020-05-28
 ### Fixed
 - Annotations feature doesn't work, [#964](https://github.com/alexanderzobnin/grafana-zabbix/issues/964)

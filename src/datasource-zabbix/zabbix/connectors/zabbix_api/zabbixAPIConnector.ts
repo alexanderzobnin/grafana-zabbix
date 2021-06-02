@@ -2,12 +2,16 @@ import _ from 'lodash';
 import semver from 'semver';
 import kbn from 'grafana/app/core/utils/kbn';
 import * as utils from '../../../utils';
-import { ZabbixAPICore } from './zabbixAPICore';
-import { ZBX_ACK_ACTION_NONE, ZBX_ACK_ACTION_ACK, ZBX_ACK_ACTION_ADD_MESSAGE, MIN_SLA_INTERVAL } from '../../../constants';
+import { ZBX_ACK_ACTION_NONE, ZBX_ACK_ACTION_ADD_MESSAGE, MIN_SLA_INTERVAL } from '../../../constants';
 import { ShowProblemTypes, ZBXProblem } from '../../../types';
-import { JSONRPCRequestParams } from './types';
+import { JSONRPCError, ZBXScript, APIExecuteScriptResponse } from './types';
+import { BackendSrvRequest, getBackendSrv } from '@grafana/runtime';
+import { rangeUtil } from '@grafana/data';
 
 const DEFAULT_ZABBIX_VERSION = '3.0.0';
+
+// Backward compatibility. Since Grafana 7.2 roundInterval() func was moved to @grafana/data package
+const roundInterval: (interval: number) => number = rangeUtil?.roundInterval || kbn.roundInterval || kbn.round_interval;
 
 /**
  * Zabbix API Wrapper.
@@ -15,35 +19,21 @@ const DEFAULT_ZABBIX_VERSION = '3.0.0';
  * Wraps API calls and provides high-level methods.
  */
 export class ZabbixAPIConnector {
-  url: string;
-  username: string;
-  password: string;
-  auth: string;
+  backendAPIUrl: string;
   requestOptions: { basicAuth: any; withCredentials: boolean; };
-  loginPromise: Promise<string>;
-  loginErrorCount: number;
-  maxLoginAttempts: number;
-  zabbixAPICore: ZabbixAPICore;
   getTrend: (items: any, timeFrom: any, timeTill: any) => Promise<any[]>;
   version: string;
   getVersionPromise: Promise<string>;
+  datasourceId: number;
 
-  constructor(api_url: string, username: string, password: string, basicAuth: any, withCredentials: boolean) {
-    this.url              = api_url;
-    this.username         = username;
-    this.password         = password;
-    this.auth             = '';
+  constructor(basicAuth: any, withCredentials: boolean, datasourceId: number) {
+    this.datasourceId = datasourceId;
+    this.backendAPIUrl = `/api/datasources/${this.datasourceId}/resources/zabbix-api`;
 
     this.requestOptions = {
       basicAuth: basicAuth,
       withCredentials: withCredentials
     };
-
-    this.loginPromise = null;
-    this.loginErrorCount = 0;
-    this.maxLoginAttempts = 3;
-
-    this.zabbixAPICore = new ZabbixAPICore();
 
     this.getTrend = this.getTrend_ZBXNEXT1193;
     //getTrend = getTrend_30;
@@ -55,63 +45,46 @@ export class ZabbixAPIConnector {
   // Core method wrappers //
   //////////////////////////
 
-  request(method: string, params: JSONRPCRequestParams): Promise<any> {
+  request(method: string, params?: any) {
     if (!this.version) {
       return this.initVersion().then(() => this.request(method, params));
     }
 
-    return this.zabbixAPICore.request(this.url, method, params, this.requestOptions, this.auth)
-    .catch(error => {
-      if (isNotInitialized(error.data)) {
-        // If API not initialized yet (auth is empty), login first
-        return this.loginOnce()
-        .then(() => this.request(method, params));
-      } else if (isNotAuthorized(error.data)) {
-        // Handle auth errors
-        this.loginErrorCount++;
-        if (this.loginErrorCount > this.maxLoginAttempts) {
-          this.loginErrorCount = 0;
-          return Promise.resolve();
-        } else {
-          return this.loginOnce()
-          .then(() => this.request(method, params));
-        }
-      } else {
-        return Promise.reject(error);
-      }
-    });
+    return this.backendAPIRequest(method, params);
   }
 
-  /**
-   * When API unauthenticated or auth token expired each request produce login()
-   * call. But auth token is common to all requests. This function wraps login() method
-   * and call it once. If login() already called just wait for it (return its promise).
-   */
-  loginOnce(): Promise<string> {
-    if (!this.loginPromise) {
-      this.loginPromise = Promise.resolve(
-        this.login().then(auth => {
-          this.auth = auth;
-          this.loginPromise = null;
-          return auth;
-        })
-      );
+  async backendAPIRequest(method: string, params: any = {}) {
+    const requestOptions: BackendSrvRequest = {
+      url: this.backendAPIUrl,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      hideFromInspector: false,
+      data: {
+        datasourceId: this.datasourceId,
+        method,
+        params,
+      },
+    };
+
+    // Set request options for basic auth
+    if (this.requestOptions.basicAuth || this.requestOptions.withCredentials) {
+      requestOptions.withCredentials = true;
     }
-    return this.loginPromise;
-  }
+    if (this.requestOptions.basicAuth) {
+      requestOptions.headers.Authorization = this.requestOptions.basicAuth;
+    }
 
-  /**
-   * Get authentication token.
-   */
-  login(): Promise<string> {
-    return this.zabbixAPICore.login(this.url, this.username, this.password, this.requestOptions);
+    const response = await getBackendSrv().datasourceRequest(requestOptions);
+    return response?.data?.result;
   }
 
   /**
    * Get Zabbix API version
    */
   getVersion() {
-    return this.zabbixAPICore.getVersion(this.url, this.requestOptions);
+    return this.backendAPIRequest('apiinfo.version');
   }
 
   initVersion(): Promise<string> {
@@ -148,7 +121,7 @@ export class ZabbixAPIConnector {
       action: action
     };
 
-    if (severity) {
+    if (severity !== undefined) {
       params.severity = severity;
     }
 
@@ -177,7 +150,11 @@ export class ZabbixAPIConnector {
     return this.request('host.get', params);
   }
 
-  getApps(hostids): Promise<any[]> {
+  async getApps(hostids): Promise<any[]> {
+    if (semver.gte(this.version, '5.4.0')) {
+      return [];
+    }
+
     const params = {
       output: 'extend',
       hostids: hostids
@@ -196,11 +173,15 @@ export class ZabbixAPIConnector {
   getItems(hostids, appids, itemtype) {
     const params: any = {
       output: [
-        'name', 'key_',
+        'name',
+        'key_',
         'value_type',
         'hostid',
         'status',
-        'state'
+        'state',
+        'units',
+        'valuemapid',
+        'delay'
       ],
       sortfield: 'name',
       webitems: true,
@@ -230,11 +211,15 @@ export class ZabbixAPIConnector {
     const params = {
       itemids: itemids,
       output: [
-        'name', 'key_',
+        'name',
+        'key_',
         'value_type',
         'hostid',
         'status',
-        'state'
+        'state',
+        'units',
+        'valuemapid',
+        'delay'
       ],
       webitems: true,
       selectHosts: ['hostid', 'name']
@@ -389,7 +374,7 @@ export class ZabbixAPIConnector {
   }
 
   getProblems(groupids, hostids, applicationids, options): Promise<ZBXProblem[]> {
-    const { timeFrom, timeTo, recent, severities, limit, acknowledged } = options;
+    const { timeFrom, timeTo, recent, severities, limit, acknowledged, tags } = options;
 
     const params: any = {
       output: 'extend',
@@ -399,7 +384,7 @@ export class ZabbixAPIConnector {
       source: '0',
       object: '0',
       sortfield: ['eventid'],
-      sortorder: 'ASC',
+      sortorder: 'DESC',
       evaltype: '0',
       // preservekeys: '1',
       groupids,
@@ -414,6 +399,10 @@ export class ZabbixAPIConnector {
 
     if (acknowledged !== undefined) {
       params.acknowledged = acknowledged;
+    }
+
+    if (tags) {
+      params.tags = tags;
     }
 
     if (limit) {
@@ -522,7 +511,7 @@ export class ZabbixAPIConnector {
       object: '0',
       evaltype: '0',
       sortfield: ['eventid'],
-      sortorder: 'ASC',
+      sortorder: 'DESC',
       select_acknowledges: 'extend',
       selectTags: 'extend',
       selectSuppressionData: ['maintenanceid', 'suppress_until'],
@@ -664,6 +653,33 @@ export class ZabbixAPIConnector {
 
     return this.request('proxy.get', params);
   }
+
+  getScripts(hostids: string[], options?: any): Promise<ZBXScript[]> {
+    const params: any = {
+      output: 'extend',
+      hostids,
+    };
+
+    return this.request('script.get', params).then(utils.mustArray);
+  }
+
+  executeScript(hostid: string, scriptid: string): Promise<APIExecuteScriptResponse> {
+    const params: any = {
+      hostid,
+      scriptid,
+    };
+
+    return this.request('script.execute', params);
+  }
+
+  getValueMappings() {
+    const params = {
+      output: 'extend',
+      selectMappings: "extend",
+    };
+
+    return this.request('valuemap.get', params);
+  }
 }
 
 function filterTriggersByAcknowledge(triggers, acknowledged) {
@@ -676,22 +692,10 @@ function filterTriggersByAcknowledge(triggers, acknowledged) {
   }
 }
 
-function isNotInitialized(message) {
-  return message === "Not initialized";
-}
-
-function isNotAuthorized(message) {
-  return (
-    message === "Session terminated, re-login, please." ||
-    message === "Not authorised." ||
-    message === "Not authorized."
-  );
-}
-
 function getSLAInterval(intervalMs) {
   // Too many intervals may cause significant load on the database, so decrease number of resulting points
   const resolutionRatio = 100;
-  const interval = kbn.round_interval(intervalMs * resolutionRatio) / 1000;
+  const interval = roundInterval(intervalMs * resolutionRatio) / 1000;
   return Math.max(interval, MIN_SLA_INTERVAL);
 }
 
@@ -712,4 +716,23 @@ function buildSLAIntervals(timeRange, interval) {
   }
 
   return intervals;
+}
+
+// Define zabbix API exception type
+export class ZabbixAPIError {
+  code: number;
+  name: string;
+  data: string;
+  message: string;
+
+  constructor(error: JSONRPCError) {
+    this.code = error.code || null;
+    this.name = error.message || "";
+    this.data = error.data || "";
+    this.message = "Zabbix API Error: " + this.name + " " + this.data;
+  }
+
+  toString() {
+    return this.name + " " + this.data;
+  }
 }

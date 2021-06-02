@@ -10,6 +10,7 @@ import { AckProblemData } from '../AckModal';
 import { GFHeartIcon, FAIcon } from '../../../components';
 import { ProblemsPanelOptions, GFTimeRange, RTCell, TriggerSeverity, RTResized } from '../../types';
 import { ProblemDTO, ZBXEvent, ZBXTag, ZBXAlert } from '../../../datasource-zabbix/types';
+import { ZBXScript, APIExecuteScriptResponse } from '../../../datasource-zabbix/zabbix/connectors/zabbix_api/types';
 import { AckCell } from './AckCell';
 
 export interface ProblemListProps {
@@ -22,6 +23,8 @@ export interface ProblemListProps {
   panelId?: number;
   getProblemEvents: (problem: ProblemDTO) => Promise<ZBXEvent[]>;
   getProblemAlerts: (problem: ProblemDTO) => Promise<ZBXAlert[]>;
+  getScripts: (problem: ProblemDTO) => Promise<ZBXScript[]>;
+  onExecuteScript: (problem: ProblemDTO, scriptid: string) => Promise<APIExecuteScriptResponse>;
   onProblemAck?: (problem: ProblemDTO, data: AckProblemData) => void;
   onTagClick?: (tag: ZBXTag, datasource: string, ctrlKey?: boolean, shiftKey?: boolean) => void;
   onPageSizeChange?: (pageSize: number, pageIndex: number) => void;
@@ -30,6 +33,7 @@ export interface ProblemListProps {
 
 interface ProblemListState {
   expanded: any;
+  expandedProblems: any;
   page: number;
 }
 
@@ -41,6 +45,7 @@ export default class ProblemList extends PureComponent<ProblemListProps, Problem
     super(props);
     this.state = {
       expanded: {},
+      expandedProblems: {},
       page: 0,
     };
   }
@@ -51,6 +56,9 @@ export default class ProblemList extends PureComponent<ProblemListProps, Problem
 
   handleProblemAck = (problem: ProblemDTO, data: AckProblemData) => {
     return this.props.onProblemAck(problem, data);
+  }
+
+  onExecuteScript = (problem: ProblemDTO, data: AckProblemData) => {
   }
 
   handlePageSizeChange = (pageSize, pageIndex) => {
@@ -65,11 +73,31 @@ export default class ProblemList extends PureComponent<ProblemListProps, Problem
     }
   }
 
-  handleExpandedChange = expanded => {
+  handleExpandedChange = (expanded: any, event: any) => {
+    const { problems, pageSize } = this.props;
+    const { page } = this.state;
+    const expandedProblems = {};
+
+    for (const row in expanded) {
+      const rowId = Number(row);
+      const problemIndex = pageSize * page + rowId;
+      if (expanded[row] && problemIndex < problems.length) {
+        const expandedProblem = problems[problemIndex].eventid;
+        if (expandedProblem) {
+          expandedProblems[expandedProblem] = true;
+        }
+      }
+    }
+
     const nextExpanded = { ...this.state.expanded };
-    nextExpanded[this.state.page] = expanded;
+    nextExpanded[page] = expanded;
+
+    const nextExpandedProblems = { ...this.state.expandedProblems };
+    nextExpandedProblems[page] = expandedProblems;
+
     this.setState({
-      expanded: nextExpanded
+      expanded: nextExpanded,
+      expandedProblems: nextExpandedProblems,
     });
   }
 
@@ -80,7 +108,22 @@ export default class ProblemList extends PureComponent<ProblemListProps, Problem
   }
 
   getExpandedPage = (page: number) => {
-    return this.state.expanded[page] || {};
+    const { problems, pageSize } = this.props;
+    const { expandedProblems } = this.state;
+    const expandedProblemsPage = expandedProblems[page] || {};
+    const expandedPage = {};
+
+    // Go through the page and search for expanded problems
+    const startIndex = pageSize * page;
+    const endIndex = Math.min(startIndex + pageSize, problems.length);
+    for (let i = startIndex; i < endIndex; i++) {
+      const problem = problems[i];
+      if (expandedProblemsPage[problem.eventid]) {
+        expandedPage[i - startIndex] = {};
+      }
+    }
+
+    return expandedPage;
   }
 
   buildColumns() {
@@ -170,7 +213,9 @@ export default class ProblemList extends PureComponent<ProblemListProps, Problem
               panelId={this.props.panelId}
               getProblemEvents={this.props.getProblemEvents}
               getProblemAlerts={this.props.getProblemAlerts}
+              getScripts={this.props.getScripts}
               onProblemAck={this.handleProblemAck}
+              onExecuteScript={this.props.onExecuteScript}
               onTagClick={this.handleTagClick}
               subRows={false}
             />

@@ -122,6 +122,7 @@
       <label class="gf-form-label query-keyword width-7">Application</label>
       <input type="text"
         ng-model="ctrl.target.application.filter"
+        ng-disabled="ctrl.appFilterDisabled()"
         bs-typeahead="ctrl.getApplicationNames"
         ng-blur="ctrl.onTargetBlur()"
         data-min-length=0
@@ -160,8 +161,7 @@
         ng-class="{
           'zbx-variable': ctrl.isVariable(ctrl.target.trigger.filter),
           'zbx-regex': ctrl.isRegex(ctrl.target.trigger.filter)
-        }"
-        empty-to-null>
+        }">
     </div>
 
     <div class="gf-form max-width-20" ng-show="ctrl.target.queryType == editorMode.PROBLEMS">
@@ -283,19 +283,32 @@
 
   <!-- Query options -->
   <div class="gf-form-group offset-width-7" ng-if="ctrl.showQueryOptions">
-    <div class="gf-form" ng-hide="ctrl.target.queryType == editorMode.TRIGGERS || ctrl.target.queryType == editorMode.PROBLEMS">
-      <gf-form-switch class="gf-form" label-class="width-10"
-        label="Show disabled items"
-        checked="ctrl.target.options.showDisabledItems"
-        on-change="ctrl.onQueryOptionChange()">
-      </gf-form-switch>
+    <div ng-hide="ctrl.target.queryType == editorMode.TRIGGERS || ctrl.target.queryType == editorMode.PROBLEMS">
+        <gf-form-switch class="gf-form" label-class="width-10"
+          label="Show disabled items"
+          checked="ctrl.target.options.showDisabledItems"
+          on-change="ctrl.onQueryOptionChange()">
+        </gf-form-switch>
+        <gf-form-switch class="gf-form" label-class="width-10"
+          label="Use Zabbix value mapping"
+          checked="ctrl.target.options.useZabbixValueMapping"
+          on-change="ctrl.onQueryOptionChange()">
+        </gf-form-switch>
+        <gf-form-switch class="gf-form" label-class="width-10"
+          label="Disable data alignment"
+          checked="ctrl.target.options.disableDataAlignment"
+          on-change="ctrl.onQueryOptionChange()">
+        </gf-form-switch>
     </div>
-    <div class="gf-form" ng-show="ctrl.target.queryType === editorMode.TEXT && ctrl.target.resultFormat === 'table'">
-      <gf-form-switch class="gf-form" label-class="width-10"
-        label="Skip empty values"
-        checked="ctrl.target.options.skipEmptyValues"
-        on-change="ctrl.onQueryOptionChange()">
-      </gf-form-switch>
+
+    <div class="gf-form-group offset-width-7" ng-show="ctrl.target.queryType === editorMode.TEXT && ctrl.target.resultFormat === 'table'">
+      <div class="gf-form">
+        <gf-form-switch class="gf-form" label-class="width-10"
+          label="Skip empty values"
+          checked="ctrl.target.options.skipEmptyValues"
+          on-change="ctrl.onQueryOptionChange()">
+        </gf-form-switch>
+      </div>
     </div>
 
     <div class="gf-form-group" ng-show="ctrl.target.queryType == editorMode.PROBLEMS || ctrl.target.queryType == editorMode.TRIGGERS">
@@ -327,6 +340,12 @@
             </select>
           </div>
         </div>
+        <gf-form-switch class="gf-form"
+          label-class="width-9"
+          label="Use time range"
+          checked="ctrl.target.options.useTimeRange"
+          on-change="ctrl.onQueryOptionChange()">
+        </gf-form-switch>
         <gf-form-switch class="gf-form"
           label-class="width-9"
           label="Hosts in maintenance"

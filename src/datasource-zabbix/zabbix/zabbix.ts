@@ -1,9 +1,10 @@
 import _ from 'lodash';
 import moment from 'moment';
+import semver from 'semver';
 import * as utils from '../utils';
 import responseHandler from '../responseHandler';
 import { CachingProxy } from './proxy/cachingProxy';
-import { ZabbixNotImplemented } from './connectors/dbConnector';
+// import { ZabbixNotImplemented } from './connectors/dbConnector';
 import { DBConnector } from './connectors/dbConnector';
 import { ZabbixAPIConnector } from './connectors/zabbix_api/zabbixAPIConnector';
 import { SQLConnector } from './connectors/sql/sqlConnector';
@@ -20,17 +21,17 @@ interface AppsResponse extends Array<any> {
 const REQUESTS_TO_PROXYFY = [
   'getHistory', 'getTrend', 'getGroups', 'getHosts', 'getApps', 'getItems', 'getMacros', 'getItemsByIDs',
   'getEvents', 'getAlerts', 'getHostAlerts', 'getAcknowledges', 'getITService', 'getSLA', 'getVersion', 'getProxies',
-  'getEventAlerts', 'getExtendedEventData', 'getProblems', 'getEventsHistory', 'getTriggersByIds'
+  'getEventAlerts', 'getExtendedEventData', 'getProblems', 'getEventsHistory', 'getTriggersByIds', 'getScripts', 'getValueMappings'
 ];
 
 const REQUESTS_TO_CACHE = [
-  'getGroups', 'getHosts', 'getApps', 'getItems', 'getMacros', 'getItemsByIDs', 'getITService', 'getProxies'
+  'getGroups', 'getHosts', 'getApps', 'getItems', 'getMacros', 'getItemsByIDs', 'getITService', 'getProxies', 'getValueMappings'
 ];
 
 const REQUESTS_TO_BIND = [
   'getHistory', 'getTrend', 'getMacros', 'getItemsByIDs', 'getEvents', 'getAlerts', 'getHostAlerts',
-  'getAcknowledges', 'getITService', 'getVersion', 'login', 'acknowledgeEvent', 'getProxies', 'getEventAlerts',
-  'getExtendedEventData'
+  'getAcknowledges', 'getITService', 'acknowledgeEvent', 'getProxies', 'getEventAlerts',
+  'getExtendedEventData', 'getScripts', 'executeScript', 'getValueMappings'
 ];
 
 export class Zabbix implements ZabbixConnector {
@@ -40,6 +41,7 @@ export class Zabbix implements ZabbixConnector {
   getHistoryDB: any;
   dbConnector: any;
   getTrendsDB: any;
+  version: string;
 
   getHistory: (items, timeFrom, timeTill) => Promise<any>;
   getTrend: (items, timeFrom, timeTill) => Promise<any>;
@@ -54,14 +56,10 @@ export class Zabbix implements ZabbixConnector {
   getEventAlerts: (eventids) => Promise<any>;
   getExtendedEventData: (eventids) => Promise<any>;
   getMacros: (hostids: any[]) => Promise<any>;
-  getVersion: () => Promise<string>;
-  login: () => Promise<any>;
+  getValueMappings: () => Promise<any>;
 
   constructor(options) {
     const {
-      url,
-      username,
-      password,
       basicAuth,
       withCredentials,
       cacheTTL,
@@ -69,6 +67,7 @@ export class Zabbix implements ZabbixConnector {
       dbConnectionDatasourceId,
       dbConnectionDatasourceName,
       dbConnectionRetentionPolicy,
+      datasourceId,
     } = options;
 
     this.enableDirectDBConnection = enableDirectDBConnection;
@@ -80,9 +79,9 @@ export class Zabbix implements ZabbixConnector {
     };
     this.cachingProxy = new CachingProxy(cacheOptions);
 
-    this.zabbixAPI = new ZabbixAPIConnector(url, username, password, basicAuth, withCredentials);
+    this.zabbixAPI = new ZabbixAPIConnector(basicAuth, withCredentials, datasourceId);
 
-    this.proxyfyRequests();
+    this.proxifyRequests();
     this.cacheRequests();
     this.bindRequests();
 
@@ -90,8 +89,8 @@ export class Zabbix implements ZabbixConnector {
       const connectorOptions: any = { dbConnectionRetentionPolicy };
       this.initDBConnector(dbConnectionDatasourceId, dbConnectionDatasourceName, connectorOptions)
       .then(() => {
-        this.getHistoryDB = this.cachingProxy.proxyfyWithCache(this.dbConnector.getHistory, 'getHistory', this.dbConnector);
-        this.getTrendsDB = this.cachingProxy.proxyfyWithCache(this.dbConnector.getTrends, 'getTrends', this.dbConnector);
+        this.getHistoryDB = this.cachingProxy.proxifyWithCache(this.dbConnector.getHistory, 'getHistory', this.dbConnector);
+        this.getTrendsDB = this.cachingProxy.proxifyWithCache(this.dbConnector.getTrends, 'getTrends', this.dbConnector);
       });
     }
   }
@@ -110,9 +109,9 @@ export class Zabbix implements ZabbixConnector {
     });
   }
 
-  proxyfyRequests() {
+  proxifyRequests() {
     for (const request of REQUESTS_TO_PROXYFY) {
-      this.zabbixAPI[request] = this.cachingProxy.proxyfy(this.zabbixAPI[request], request, this.zabbixAPI);
+      this.zabbixAPI[request] = this.cachingProxy.proxify(this.zabbixAPI[request], request, this.zabbixAPI);
     }
   }
 
@@ -147,7 +146,7 @@ export class Zabbix implements ZabbixConnector {
     return this.getVersion()
     .then(version => {
       zabbixVersion = version;
-      return this.login();
+      return this.getAllGroups();
     })
     .then(() => {
       if (this.enableDirectDBConnection) {
@@ -157,9 +156,6 @@ export class Zabbix implements ZabbixConnector {
       }
     })
     .catch(error => {
-      if (error instanceof ZabbixNotImplemented) {
-        return Promise.resolve();
-      }
       return Promise.reject(error);
     })
     .then(testResult => {
@@ -171,6 +167,17 @@ export class Zabbix implements ZabbixConnector {
       }
       return { zabbixVersion, dbConnectorStatus };
     });
+  }
+
+  async getVersion() {
+    if (!this.version) {
+      this.version = await this.zabbixAPI.initVersion();
+    }
+    return this.version;
+  }
+
+  supportsApplications() {
+    return this.version ? semver.lt(this.version, '5.4.0') : true;
   }
 
   getItemsFromTarget(target, options) {
@@ -223,7 +230,12 @@ export class Zabbix implements ZabbixConnector {
   /**
    * Get list of applications belonging to given groups and hosts.
    */
-  getAllApps(groupFilter, hostFilter) {
+  async getAllApps(groupFilter, hostFilter) {
+    await this.getVersion();
+    if (!this.supportsApplications()) {
+      return [];
+    }
+
     return this.getHosts(groupFilter, hostFilter)
     .then(hosts => {
       const hostids = _.map(hosts, 'hostid');
@@ -231,11 +243,14 @@ export class Zabbix implements ZabbixConnector {
     });
   }
 
-  getApps(groupFilter?, hostFilter?, appFilter?): Promise<AppsResponse> {
+  async getApps(groupFilter?, hostFilter?, appFilter?): Promise<AppsResponse> {
+    await this.getVersion();
+    const skipAppFilter = !this.supportsApplications();
+
     return this.getHosts(groupFilter, hostFilter)
     .then(hosts => {
       const hostids = _.map(hosts, 'hostid');
-      if (appFilter) {
+      if (appFilter && !skipAppFilter) {
         return this.zabbixAPI.getApps(hostids)
         .then(apps => filterByQuery(apps, appFilter));
       } else {
@@ -313,7 +328,7 @@ export class Zabbix implements ZabbixConnector {
     .then(itServices => findByFilter(itServices, itServiceFilter));
   }
 
-  getProblems(groupFilter, hostFilter, appFilter, proxyFilter?, options?) {
+  getProblems(groupFilter, hostFilter, appFilter, proxyFilter?, options?): Promise<ProblemDTO[]> {
     const promises = [
       this.getGroups(groupFilter),
       this.getHosts(groupFilter, hostFilter),
@@ -328,7 +343,7 @@ export class Zabbix implements ZabbixConnector {
       if (appFilter) {
         query.applicationids = _.flatten(_.map(filteredApps, 'applicationid'));
       }
-      if (hostFilter) {
+      if (hostFilter && hostFilter !== '/.*/') {
         query.hostids = _.map(filteredHosts, 'hostid');
       }
       if (groupFilter) {
@@ -346,8 +361,8 @@ export class Zabbix implements ZabbixConnector {
       ]);
     })
     .then(([problems, triggers]) => joinTriggersWithProblems(problems, triggers))
-    .then(triggers => this.filterTriggersByProxy(triggers, proxyFilter))
-    .then(triggers => this.expandUserMacro.bind(this)(triggers, true));
+    .then(triggers => this.filterTriggersByProxy(triggers, proxyFilter));
+    // .then(triggers => this.expandUserMacro.bind(this)(triggers, true));
   }
 
   getProblemsHistory(groupFilter, hostFilter, appFilter, proxyFilter?, options?): Promise<ProblemDTO[]> {
@@ -382,8 +397,8 @@ export class Zabbix implements ZabbixConnector {
       return Promise.all([Promise.resolve(problems), this.zabbixAPI.getTriggersByIds(triggerids)]);
     })
     .then(([problems, triggers]) => joinTriggersWithEvents(problems, triggers, { valueFromEvent }))
-    .then(triggers => this.filterTriggersByProxy(triggers, proxyFilter))
-    .then(triggers => this.expandUserMacro.bind(this)(triggers, true));
+    .then(triggers => this.filterTriggersByProxy(triggers, proxyFilter));
+    // .then(triggers => this.expandUserMacro.bind(this)(triggers, true));
   }
 
   filterTriggersByProxy(triggers, proxyFilter) {

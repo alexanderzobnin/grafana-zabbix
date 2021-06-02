@@ -22,8 +22,9 @@ module.exports = {
     "^.+\\.js$": "babel-jest",
     "^.+\\.(ts|tsx)$": "ts-jest"
   },
-  "coverageDirectory": "<rootDir>/tmp/coverage/",
+  "coverageDirectory": "<rootDir>/tmp/coverage/node/",
   "collectCoverage": false,
+  "testEnvironment": "jest-environment-jsdom-fifteen",
   "globals": {
     "ts-jest": {
       "tsConfig": "tsconfig.test.json"

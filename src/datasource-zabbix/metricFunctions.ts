@@ -306,6 +306,7 @@ class FuncInstance {
   def: any;
   params: any;
   text: string;
+  added: boolean;
 
   constructor(funcDef, params) {
     this.def = funcDef;
@@ -408,7 +409,7 @@ class FuncInstance {
   }
 }
 
-export function createFuncInstance(funcDef, params) {
+export function createFuncInstance(funcDef, params?) {
   if (_.isString(funcDef)) {
     if (!index[funcDef]) {
       throw { message: 'Method not found ' + name };

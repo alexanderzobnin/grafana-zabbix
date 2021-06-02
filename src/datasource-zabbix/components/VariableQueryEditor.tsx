@@ -3,12 +3,7 @@ import { parseLegacyVariableQuery } from '../utils';
 import { SelectableValue } from '@grafana/data';
 import { VariableQuery, VariableQueryTypes, VariableQueryProps, VariableQueryData } from '../types';
 import { ZabbixInput } from './ZabbixInput';
-
-// FormLabel was renamed to InlineFormLabel in Grafana 7.0
-import * as grafanaUi from '@grafana/ui';
-const FormLabel = grafanaUi.FormLabel || (grafanaUi as any).InlineFormLabel;
-const Select = (grafanaUi as any).LegacyForms?.Select || (grafanaUi as any).Select;
-const Input = (grafanaUi as any).LegacyForms?.Input || (grafanaUi as any).Input;
+import { InlineFormLabel, Select, Input } from '@grafana/ui';
 
 export class ZabbixVariableQueryEditor extends PureComponent<VariableQueryProps, VariableQueryData> {
   queryTypes: Array<SelectableValue<VariableQueryTypes>> = [
@@ -96,7 +91,7 @@ export class ZabbixVariableQueryEditor extends PureComponent<VariableQueryProps,
     return (
       <>
         <div className="gf-form max-width-21">
-          <FormLabel width={10}>Query Type</FormLabel>
+          <InlineFormLabel width={10}>Query Type</InlineFormLabel>
           <Select
             width={11}
             value={selectedQueryType}
@@ -106,7 +101,7 @@ export class ZabbixVariableQueryEditor extends PureComponent<VariableQueryProps,
         </div>
         <div className="gf-form-inline">
           <div className="gf-form max-width-30">
-            <FormLabel width={10}>Group</FormLabel>
+            <InlineFormLabel width={10}>Group</InlineFormLabel>
             <ZabbixInput
               value={group}
               onChange={evt => this.handleQueryUpdate(evt, 'group')}
@@ -115,7 +110,7 @@ export class ZabbixVariableQueryEditor extends PureComponent<VariableQueryProps,
           </div>
           {selectedQueryType.value !== VariableQueryTypes.Group &&
             <div className="gf-form max-width-30">
-              <FormLabel width={10}>Host</FormLabel>
+              <InlineFormLabel width={10}>Host</InlineFormLabel>
               <ZabbixInput
                 value={host}
                 onChange={evt => this.handleQueryUpdate(evt, 'host')}
@@ -129,7 +124,7 @@ export class ZabbixVariableQueryEditor extends PureComponent<VariableQueryProps,
           selectedQueryType.value === VariableQueryTypes.ItemValues) &&
           <div className="gf-form-inline">
             <div className="gf-form max-width-30">
-              <FormLabel width={10}>Application</FormLabel>
+              <InlineFormLabel width={10}>Application</InlineFormLabel>
               <ZabbixInput
                 value={application}
                 onChange={evt => this.handleQueryUpdate(evt, 'application')}
@@ -139,7 +134,7 @@ export class ZabbixVariableQueryEditor extends PureComponent<VariableQueryProps,
             {(selectedQueryType.value === VariableQueryTypes.Item ||
               selectedQueryType.value === VariableQueryTypes.ItemValues) &&
               <div className="gf-form max-width-30">
-                <FormLabel width={10}>Item</FormLabel>
+                <InlineFormLabel width={10}>Item</InlineFormLabel>
                 <ZabbixInput
                   value={item}
                   onChange={evt => this.handleQueryUpdate(evt, 'item')}
@@ -152,7 +147,7 @@ export class ZabbixVariableQueryEditor extends PureComponent<VariableQueryProps,
 
         {legacyQuery &&
           <div className="gf-form">
-            <FormLabel width={10} tooltip="Original query string, read-only">Legacy Query</FormLabel>
+            <InlineFormLabel width={10} tooltip="Original query string, read-only">Legacy Query</InlineFormLabel>
             <Input
               value={legacyQuery}
               readOnly={true}

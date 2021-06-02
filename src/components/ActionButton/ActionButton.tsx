@@ -50,7 +50,7 @@ const getStyles = stylesFactory((theme: GrafanaTheme) => {
       height: 2rem;
       background-image: none;
       background-color: ${actionBlue};
-      border: 1px solid ${theme.colors.gray1 || (theme as any).palette.gray1};
+      border: 1px solid ${theme.palette.gray1};
       border-radius: 1px;
       color: ${theme.colors.text};
 

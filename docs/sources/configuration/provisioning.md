@@ -30,8 +30,6 @@ datasources:
     alerting: true
     addThresholds: false
     alertingMinSeverity: 3
-    # Disable acknowledges for read-only users
-    disableReadOnlyUsersAck: true
     # Direct DB Connection options
     dbConnectionEnable: true
     # Name of existing datasource for Direct DB Connection
@@ -39,6 +37,12 @@ datasources:
     # Retention policy name (InfluxDB only) for fetching long-term stored data.
     # Leave it blank if only default retention policy used.
     dbConnectionRetentionPolicy: one_year
+    # Disable acknowledges for read-only users
+    disableReadOnlyUsersAck: true
+    # Disable time series data alignment
+    disableDataAlignment: false
+    # Use value mapping from Zabbix
+    useZabbixValueMapping: true
   version: 1
   editable: false
 

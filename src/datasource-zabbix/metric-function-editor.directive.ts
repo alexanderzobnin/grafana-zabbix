@@ -11,8 +11,9 @@ export function zabbixFunctionEditor($compile, templateSrv) {
       func="func"
       onRemove="ctrl.handleRemoveFunction"
       onMoveLeft="ctrl.handleMoveLeft"
-      onMoveRight="ctrl.handleMoveRight"
-    /><span>(</span>
+      onMoveRight="ctrl.handleMoveRight">
+    </zbx-function-editor>
+    <span>(</span>
   `;
   const paramTemplate =
     '<input type="text" style="display:none"' + ' class="input-small tight-form-func-param"></input>';
@@ -193,7 +194,7 @@ export function zabbixFunctionEditor($compile, templateSrv) {
           }
 
           if (index > 0) {
-            $('<span class="comma' + (last ? ' query-part__last' : '') + '">, </span>').appendTo(elem);
+            $('<span class="comma' + (last ? ' query-part__last' : '') + '">,&nbsp; </span>').appendTo(elem);
           }
 
           const $paramLink = $(

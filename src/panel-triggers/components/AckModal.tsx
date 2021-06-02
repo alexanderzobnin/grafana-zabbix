@@ -1,13 +1,9 @@
 import React, { PureComponent } from 'react';
 import { cx, css } from 'emotion';
 import { ZBX_ACK_ACTION_ADD_MESSAGE, ZBX_ACK_ACTION_ACK, ZBX_ACK_ACTION_CHANGE_SEVERITY, ZBX_ACK_ACTION_CLOSE } from '../../datasource-zabbix/constants';
-import { Button, VerticalGroup, Spinner, Modal, Input, Forms, stylesFactory, withTheme, Themeable } from '@grafana/ui';
+import { Button, VerticalGroup, Spinner, Modal, Input, Checkbox, RadioButtonGroup, stylesFactory, withTheme, Themeable, TextArea } from '@grafana/ui';
 import { FAIcon } from '../../components';
-
-import * as grafanaUi from '@grafana/ui';
 import { GrafanaTheme } from '@grafana/data';
-const Checkbox: any = Forms?.Checkbox || (grafanaUi as any).Checkbox;
-const RadioButtonGroup: any = Forms?.RadioButtonGroup || (grafanaUi as any).RadioButtonGroup;
 
 const KEYBOARD_ENTER_KEY = 13;
 const KEYBOARD_ESCAPE_KEY = 27;
@@ -69,13 +65,13 @@ export class AckModalUnthemed extends PureComponent<Props, State> {
     };
   }
 
-  handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  handleChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     this.setState({ value: event.target.value, error: false });
   }
 
-  handleKeyUp = (event: React.KeyboardEvent<HTMLInputElement>) => {
+  handleKeyPress = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.which === KEYBOARD_ENTER_KEY || event.key === 'Enter') {
-      this.submit();
+      // this.submit();
     } else if (event.which === KEYBOARD_ESCAPE_KEY || event.key === 'Escape') {
       this.dismiss();
     }
@@ -139,8 +135,9 @@ export class AckModalUnthemed extends PureComponent<Props, State> {
     this.props.onSubmit(ackData).then(() => {
       this.dismiss();
     }).catch(err => {
+      const errorMessage = err.data?.message || err.data?.error || err.data || err.statusText || '';
       this.setState({
-        ackError: err.message || err.data,
+        ackError: errorMessage,
         loading: false,
       });
     });
@@ -199,17 +196,16 @@ export class AckModalUnthemed extends PureComponent<Props, State> {
       >
         <div className={inputGroupClass}>
           <label className="gf-form-hint">
-            <Input className={inputClass}
+            <TextArea className={inputClass}
               type="text"
               name="message"
               placeholder="Message"
-              maxLength={64}
               autoComplete="off"
               autoFocus={true}
               value={this.state.value}
               onChange={this.handleChange}
-              onKeyUp={this.handleKeyUp}>
-            </Input>
+              onKeyDown={this.handleKeyPress}>
+            </TextArea>
             <small className={inputHintClass}>Press Enter to submit</small>
             {this.state.error &&
               <small className={inputErrorClass}>{this.state.errorMessage}</small>
@@ -239,7 +235,7 @@ export class AckModalUnthemed extends PureComponent<Props, State> {
 }
 
 const getStyles = stylesFactory((theme: GrafanaTheme) => {
-  const red = theme.colors.red || (theme as any).palette.red;
+  const red = theme.palette.red;
   return {
     modal: css`
       width: 500px;
@@ -257,7 +253,7 @@ const getStyles = stylesFactory((theme: GrafanaTheme) => {
       border-color: ${red};
       border-radius: 2px;
       outline-offset: 2px;
-      box-shadow: 0 0 0 2px ${theme.colors.pageBg || (theme as any).colors.bg1}, 0 0 0px 4px ${red};
+      box-shadow: 0 0 0 2px ${theme.colors.bg1}, 0 0 0px 4px ${red};
     `,
     inputHint: css`
       display: inherit;

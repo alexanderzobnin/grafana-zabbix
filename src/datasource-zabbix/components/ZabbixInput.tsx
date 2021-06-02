@@ -11,10 +11,10 @@ const variablePattern = RegExp(`^${variableRegex.source}`);
 
 const getStyles = (theme: GrafanaTheme) => ({
   inputRegex: css`
-    color: ${theme.colors.orange || (theme as any).palette.orange}
+    color: ${theme.palette.orange}
   `,
   inputVariable: css`
-    color: ${theme.colors.variable || (theme as any).palette.variable}
+    color: ${theme.colors.textBlue}
   `,
 });
 

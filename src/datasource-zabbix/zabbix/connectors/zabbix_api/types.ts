@@ -19,14 +19,6 @@ export interface JSONRPCError {
   data?: string;
 }
 
-export interface GFHTTPRequest {
-  method: HTTPMethod;
-  url: string;
-  data?: any;
-  headers?: {[key: string]: string};
-  withCredentials?: boolean;
-}
-
 export type JSONRPCRequestParams = {[key: string]: any};
 
 export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'CONNECT' | 'OPTIONS' | 'TRACE';
@@ -37,6 +29,24 @@ export interface ZabbixRequestResponse {
   data?: JSONRPCResponse<any>;
 }
 
-export type ZabbixAPIResponse<T> = T;
+export type ZabbixAPIResponse<T> = Promise<T>;
 
 export type APILoginResponse = string;
+
+export interface ZBXScript {
+  scriptid: string;
+  name?: string;
+  command?: string;
+  host_access?: string;
+  usrgrpid?: string;
+  groupid?: string;
+  description?: string;
+  confirmation?: string;
+  type?: string;
+  execute_on?: string;
+}
+
+export interface APIExecuteScriptResponse {
+  response: 'success' | 'failed';
+  value?: string;
+}

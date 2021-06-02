@@ -31,6 +31,10 @@ yarn-error.log
 
 # Built plugin
 dist/
+ci/
+
+# Grafana toolkit configs
+.prettierrc.js
 
 # locally required config files
 public/css/*.min.css
